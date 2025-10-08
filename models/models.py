@@ -128,4 +128,28 @@ def ridge_regression(y, tx, lambda_):
     N, D = tx.shape
     I = np.eye(D)
     w = np.linalg.solve(tx.T @ tx + lambda_ * 2 * N * I, tx.T @ y)
-    return w   
+    return w 
+
+
+def logistic_regression(y, tx, initial_w, max_iters, gamma):
+    loss = 0
+    w = initial_w
+    for iter in range(max_iters):
+        pred = 1.0 / (1 + np.exp(tx.dot(w)))
+        loss_t = y.T.dot(np.log(pred)) + (1 - y).T.dot(np.log(1 - pred))
+        loss = np.squeeze(-loss_t).item() * (1 / y.shape[0])
+        grad = tx.T.dot(pred - y) * (1 / y.shape[0])
+        w -= gamma * grad
+    return w, loss
+
+
+def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
+    loss = 0
+    w = initial_w
+    for iter in range(max_iters):
+        pred = 1.0 / (1 + np.exp(tx.dot(w)))
+        loss_t = y.T.dot(np.log(pred)) + (1 - y).T.dot(np.log(1 - pred))
+        loss = np.squeeze(-loss_t).item() * (1 / y.shape[0])
+        grad = tx.T.dot(pred - y) * (1 / y.shape[0])
+        w -= gamma * grad
+    return w, loss
