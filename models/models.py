@@ -97,17 +97,11 @@ def least_squares(y, tx):
     >>> least_squares(np.array([0.1,0.2]), np.array([[2.3, 3.2], [1., 0.1]]))
     (array([ 0.21212121, -0.12121212]), 8.666684749742561e-33)
     """
-    # ***************************************************
-    # INSERT YOUR CODE HERE
-    # least squares: TODO
-    # returns mse, and optimal weights
     w = np.linalg.solve((tx.T @ tx), tx.T @ y)
     y_pred = tx @ w
     e = y - y_pred
     mse = 1 / (len(y)) * np.sum(e**2)
     return w, mse
-
-    # ***************************************************
 
 def ridge_regression(y, tx, lambda_):
     """implement ridge regression.
