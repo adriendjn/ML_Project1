@@ -12,7 +12,7 @@ def compute_mse(y, tx, w):
         loss: loss value (scalar), corresponding to the input parameters w.
     """
     e = y - tx @ w
-    loss = (1/ (2*len(y))) * np.dot(e, e)
+    loss = 1/2 * np.mean(e**2)
     return loss
 
 def compute_mse_gradient(y, tx, w):
@@ -27,7 +27,7 @@ def compute_mse_gradient(y, tx, w):
         grad: numpy array of shape (D,) (same shape as w), containing the gradient of the loss at w.
     """
     e = y - tx @ w
-    grad = -(1/len(y)) * tx.T @ e
+    grad = -(1/len(e)) * tx.T @ e
     return grad
 
 def compute_mse_stoch_gradient(y, tx, w):
@@ -42,8 +42,11 @@ def compute_mse_stoch_gradient(y, tx, w):
         grad: numpy array of shape (D,) (same shape as w), containing the stochastic gradient of the loss at w.
     """
     e = y - tx @ w
-    grad = -(1/len(y)) * tx.T @ e
+    grad = -(1/len(e)) * tx.T @ e
     return grad
+
+def sigmoid(t):
+    return 1.0/(1 + np.exp(-t))
 
 def batch_iter(y, tx, batch_size=1, num_batches=1, shuffle=True):
     """
@@ -130,12 +133,12 @@ def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
     """
     # Define parameters to store w and loss
     w = initial_w
-    loss = 0
+    loss = compute_mse(y, tx, w)
 
     for n_iter in range(max_iters):
-        loss = compute_mse(y, tx, w)
         grad = compute_mse_gradient(y, tx, w)
         w = w - gamma * grad
+        loss = compute_mse(y, tx, w)
 
     return (w, loss)
 
@@ -150,18 +153,18 @@ def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
         gamma: scalar denoting the stepsize.
 
     Returns:
-        w:  model parameters as numpy arrays of shape (D,), for the last iteration of SGD.
+        w: model parameters as numpy arrays of shape (D,), for the last iteration of SGD.
         loss: loss value (scalar) for the last iteration of SGD.
     """
     # Define parameters to store w and loss
     w = initial_w
-    loss = 0
+    loss = compute_mse(y, tx, w)
 
     for n_iter in range(max_iters):
         for minibatch_y, minibatch_tx in batch_iter(y, tx):
-            loss = compute_mse(minibatch_y, minibatch_tx, w)
             grad = compute_mse_stoch_gradient(minibatch_y, minibatch_tx, w)
             w = w - gamma * grad
+            loss = compute_mse(minibatch_y, minibatch_tx, w)
 
     return (w, loss)
 
@@ -181,9 +184,8 @@ def least_squares(y, tx):
     (array([ 0.21212121, -0.12121212]), 8.666684749742561e-33)
     """
     # returns mse, and optimal weights
-    w = np.linalg.solve((tx.T @ tx), tx.T @ y)
-    e = y - tx @ w
-    loss = 1 / (len(y)) * np.sum(e**2)
+    w = np.linalg.solve(tx.T @ tx, tx.T @ y)
+    loss = compute_mse(y, tx, w)
     return (w, loss)
 
 def ridge_regression(y, tx, lambda_):
@@ -206,8 +208,7 @@ def ridge_regression(y, tx, lambda_):
     N, D = tx.shape
     I = np.eye(D)
     w = np.linalg.solve(tx.T @ tx + lambda_ * 2 * N * I, tx.T @ y)
-    e = y - tx @ w
-    loss = 1 / (len(y)) * np.sum(e**2)
+    loss = compute_mse(y, tx, w)
     return (w, loss) 
 
 def logistic_regression(y, tx, initial_w, max_iters, gamma):
@@ -217,21 +218,25 @@ def logistic_regression(y, tx, initial_w, max_iters, gamma):
         y: numpy array of shape (N,), N is the number of samples.
         tx: numpy array of shape (N,D), D is the number of features.
         initial_w: numpy array of shape=(D,). The initial guess (or the initialization) for the model parameters.
-        max_iters: a scalar denoting the total number of iterations of SGD.
-        gamma: a scalar denoting the stepsize.
+        max_iters: scalar denoting the total number of iterations of SGD.
+        gamma: scalar denoting the stepsize.
 
     Returns:
         w: optimal weights, numpy array of shape(D,), D is the number of features.
-        loss: loss value (scala) for the logistic regression.
+        loss: loss value (scalar) for the logistic regression.
     """
-    loss = 0
     w = initial_w
+    pred = sigmoid(tx @ w)
+    loss_t = y.T @ np.log(pred) + (1 - y).T @ np.log(1 - pred)
+    loss = np.squeeze(-loss_t) * (1 / y.shape[0])
+
     for n_iter in range(max_iters):
-        pred = 1.0 / (1 + np.exp(tx @ w))
-        loss_t = y.T @ np.log(pred) + (1 - y).T @ np.log(1 - pred)
-        loss = np.squeeze(-loss_t).item() * (1 / y.shape[0])
+        pred = sigmoid(tx @ w)
         grad = tx.T @ (pred - y) * (1 / y.shape[0])
         w -= gamma * grad
+        pred = sigmoid(tx @ w)
+        loss_t = y.T @ np.log(pred) + (1 - y).T @ np.log(1 - pred)
+        loss = np.squeeze(-loss_t) * (1 / y.shape[0])
     return (w, loss)
 
 def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
@@ -242,19 +247,23 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
         tx: numpy array of shape (N,D), D is the number of features.
         lambda_: scalar, regularization parameter.
         initial_w: numpy array of shape=(D,). The initial guess (or the initialization) for the model parameters.
-        max_iters: a scalar denoting the total number of iterations of SGD.
-        gamma: a scalar denoting the stepsize.
+        max_iters: scalar denoting the total number of iterations of SGD.
+        gamma: scalar denoting the stepsize.
 
     Returns:
         w: optimal weights, numpy array of shape(D,), D is the number of features.
-        loss: loss value (scala) for the logistic regression.
+        loss: loss value (scalar) for the logistic regression.
     """
-    loss = 0
     w = initial_w
+    pred = sigmoid(tx @ w)
+    loss_t = y.T @ np.log(pred) + (1 - y).T @ np.log(1 - pred)
+    loss = np.squeeze(-loss_t) * (1 / y.shape[0])
+
     for n_iter in range(max_iters):
-        pred = 1.0 / (1 + np.exp(tx @ w))
-        loss_t = y.T @ np.log(pred) + (1 - y).T @ np.log(1 - pred)
-        loss = np.squeeze(-loss_t).item() * (1 / y.shape[0])
-        grad = tx.T @ (pred - y) * (1 / y.shape[0])
+        pred = sigmoid(tx @ w)
+        grad = tx.T @ (pred - y) * (1 / y.shape[0]) + 2 * lambda_ * w 
         w -= gamma * grad
+        pred = sigmoid(tx @ w)
+        loss_t = y.T @ np.log(pred) + (1 - y).T @ np.log(1 - pred)
+        loss = np.squeeze(-loss_t) * (1 / y.shape[0])
     return (w, loss)
