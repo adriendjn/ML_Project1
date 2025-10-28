@@ -41,8 +41,8 @@ corr_pair = []
 n_features = corr_matrix.shape[0]
 
 for i in range(n_features):
-    for j in range(i+1, n_features):
-        if abs(corr_matrix[i,j]) > low_covar_treshold:
-            corr_pair.append((i, j, corr_matrix[i,j]))
+    for j in range(i + 1, n_features):
+        if abs(corr_matrix[i, j]) > low_covar_treshold:
+            corr_pair.append((i, j, corr_matrix[i, j]))
 for i, j, corr in corr_pair:
     print(f"Colonne {i} et {j} : correlation = {corr:.2f}")

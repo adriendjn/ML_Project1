@@ -1,5 +1,10 @@
 import numpy as np
-from models_util import compute_mse, compute_gradient, batch_iter, compute_stoch_gradient
+from models_util import (
+    compute_mse,
+    compute_gradient,
+    batch_iter,
+    compute_stoch_gradient,
+)
 
 
 def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
@@ -82,6 +87,7 @@ def mean_squared_error_sgd(y, tx, initial_w, batch_size, max_iters, gamma):
     ws = np.array(ws)
     return losses, ws
 
+
 def least_squares(y, tx):
     """Calculate the least squares solution.
        returns mse, and optimal weights.
@@ -103,6 +109,7 @@ def least_squares(y, tx):
     mse = 1 / (len(y)) * np.sum(e**2)
     return w, mse
 
+
 def ridge_regression(y, tx, lambda_):
     """implement ridge regression.
 
@@ -122,7 +129,7 @@ def ridge_regression(y, tx, lambda_):
     N, D = tx.shape
     I = np.eye(D)
     w = np.linalg.solve(tx.T @ tx + lambda_ * 2 * N * I, tx.T @ y)
-    return w 
+    return w
 
 
 def logistic_regression(y, tx, initial_w, max_iters, gamma):

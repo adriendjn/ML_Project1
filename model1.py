@@ -1,6 +1,11 @@
 import numpy as np
 from helpers import load_csv_data, create_csv_submission
-from implementations import least_squares, ridge_regression, reg_logistic_regression, logistic_regression
+from implementations import (
+    least_squares,
+    ridge_regression,
+    reg_logistic_regression,
+    logistic_regression,
+)
 from sklearn.metrics import f1_score, accuracy_score
 
 print("Loading data")
@@ -39,8 +44,8 @@ low_covar_treshold = 0.9
 n_features = corr_matrix.shape[0]
 to_remove = set()
 for i in range(n_features):
-    for j in range(i+1, n_features):
-        if abs(corr_matrix[i,j]) > low_covar_treshold:
+    for j in range(i + 1, n_features):
+        if abs(corr_matrix[i, j]) > low_covar_treshold:
             to_remove.add(i)
 
 keep_features = [i for i in range(n_features) if i not in to_remove]
@@ -76,12 +81,14 @@ best_lambda = 0
 n_iter = 20
 
 for gamma in gammas:
-    w, loss = logistic_regression(y_train_split, x_train_split, np.zeros(x_train_split.shape[1]), n_iter, gamma)
+    w, loss = logistic_regression(
+        y_train_split, x_train_split, np.zeros(x_train_split.shape[1]), n_iter, gamma
+    )
     y_pred = x_test_split @ w
     y_pred_class = np.where(y_pred >= 0, 1, -1)
     score = accuracy_score(y_test_split, y_pred_class)
     if score > best_score:
-        best_score= score 
+        best_score = score
         best_gamma = gamma
         best_w = w
 

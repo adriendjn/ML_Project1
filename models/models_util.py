@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def compute_mse(y, tx, w):
     """Calculate the loss using MSE.
 
@@ -13,9 +14,10 @@ def compute_mse(y, tx, w):
     """
     # ***************************************************
     e = y - tx @ w
-    loss = (1/ (2*len(y))) * np.dot(e, e)
+    loss = (1 / (2 * len(y))) * np.dot(e, e)
     return loss
     # ***************************************************
+
 
 def compute_gradient(y, tx, w):
     """Computes the gradient at w.
@@ -30,9 +32,10 @@ def compute_gradient(y, tx, w):
     """
     # ***************************************************
     e = y - tx @ w
-    grad = -(1/len(y)) * tx.T @ e
+    grad = -(1 / len(y)) * tx.T @ e
     return grad
     # ***************************************************
+
 
 def batch_iter(y, tx, batch_size, num_batches=1, shuffle=True):
     """
@@ -93,6 +96,7 @@ def batch_iter(y, tx, batch_size, num_batches=1, shuffle=True):
         )  # The first data point of the following batch
         yield y[start_index:end_index], tx[start_index:end_index]
 
+
 def compute_stoch_gradient(y, tx, w):
     """Compute a stochastic gradient at w from a data sample batch of size B, where B < N, and their corresponding labels.
 
@@ -107,6 +111,6 @@ def compute_stoch_gradient(y, tx, w):
 
     # ***************************************************
     e = y - tx @ w
-    grad = -(1/len(y)) * tx.T @ e
+    grad = -(1 / len(y)) * tx.T @ e
     return grad
     # ***************************************************
