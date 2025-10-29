@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from helpers import load_csv_data, create_csv_submission
 from implementations import (
     mean_squared_error_gd,
@@ -10,9 +11,13 @@ from implementations import (
 )
 from sklearn.metrics import f1_score, accuracy_score
 
+start_time = time.time()
+
 print("Loading data")
 x_train, x_test, y_train, train_ids, test_ids = load_csv_data("data\dataset")
+print("Data loaded in %.3s secs" % (time.time() - start_time))
 
+stime = time.time()
 print("\nCleaning the mostly empty features")
 
 missing_treshold = 0.9
@@ -80,15 +85,19 @@ y_train_split = y_train[indices[:split]]
 x_test_split = x_clean[indices[split:]]
 y_test_split = y_train[indices[split:]]
 
+print("Data cleaned in %.3s secs" % (time.time() - stime))
+
 gammas = [1e-4, 1e-3, 1e-2, 1e-1, 0.5, 1.0]
-lambdas = [x/2 for x in range(3)]
-initial_w = np.ones(x_train_split.shape[1])/1.0
+N_LAMBDAS = 10
+lambdas = [x / N_LAMBDAS for x in range(N_LAMBDAS + 1)]
+initial_w = np.ones(x_train_split.shape[1]) / 1.0
 n_iter = 20
 best_score = 0
 best_gamma = None
 best_lambda = 0
 
 # Linear regression with MSE and gradient descent
+stime = time.time()
 best_score_mse_gd = 0
 for gamma in gammas:
     w, loss = mean_squared_error_gd(
@@ -106,9 +115,13 @@ if best_score_mse_gd > best_score:
     best_gamma = best_gamma_mse_gd
     best_w = best_w_mse_gd
 
-print("\nLinear regression GD highest acc: %.3f using gamma: %f\n" % (best_score_mse_gd*100, best_gamma_mse_gd))
+print(
+    "\nLinear regression GD highest acc: %.3f using gamma: %f (took %.3s secs)\n"
+    % (best_score_mse_gd * 100, best_gamma_mse_gd, time.time() - stime)
+)
 
 # Linear regression with MSE and stochastic gradient descent
+stime = time.time()
 best_score_mse_sgd = 0
 for gamma in gammas:
     w, loss = mean_squared_error_sgd(
@@ -126,9 +139,13 @@ if best_score_mse_sgd > best_score:
     best_gamma = best_gamma_mse_sgd
     best_w = best_w_mse_sgd
 
-print("Linear regression SGD highest acc: %.3f using gamma: %f\n" % (best_score_mse_sgd*100, best_gamma_mse_sgd))
+print(
+    "Linear regression SGD highest acc: %.3f using gamma: %f (took %.3s secs)\n"
+    % (best_score_mse_sgd * 100, best_gamma_mse_sgd, time.time() - stime)
+)
 
 # Least Squares regression with MSE and normal equations
+stime = time.time()
 best_score_ls = 0
 w, loss = least_squares(y_train_split, x_train_split)
 y_pred = x_test_split @ w
@@ -140,9 +157,13 @@ if best_score_ls > best_score:
     best_score = best_score_ls
     best_w = best_w_ls
 
-print("Least Squares regression acc: %.3f\n" % (best_score_ls*100))
+print(
+    "Least Squares regression acc: %.3f (took %.3s secs)\n"
+    % (best_score_ls * 100, time.time() - stime)
+)
 
 # Ridge regression with MSE and normal equations
+stime = time.time()
 best_score_ridge = 0
 for lambda_ in lambdas:
     w, loss = ridge_regression(y_train_split, x_train_split, lambda_)
@@ -158,14 +179,17 @@ if best_score_ridge > best_score:
     best_lambda = best_lambda_ridge
     best_w = best_w_ridge
 
-print("Ridge regression highest acc: %.3f using lambda: %f\n" % (best_score_ridge*100, best_lambda_ridge))
+print(
+    "Ridge regression highest acc: %.3f using lambda: %f (took %.3s secs)\n"
+    % (best_score_ridge * 100, best_lambda_ridge, time.time() - stime)
+)
 
 # Logistic regression with Log loss and gradient descent
+stime = time.time()
 best_score_log_gd = 0
 for gamma in gammas:
-    #print("\ngamma: %f" % gamma)
     w, loss = logistic_regression(
-        y_train_split, x_train_split, best_w_ls, n_iter, gamma
+        y_train_split, x_train_split, initial_w, n_iter, gamma
     )
     y_pred = x_test_split @ w
     y_pred_class = np.where(y_pred >= 0, 1, -1)
@@ -179,14 +203,16 @@ if best_score_log_gd > best_score:
     best_gamma = best_gamma_log_gd
     best_w = best_w_log_gd
 
-print("Logistic regression highest acc: %.3f using gamma: %f\n" % (best_score_log_gd*100, best_gamma_log_gd))
+print(
+    "Logistic regression highest acc: %.3f using gamma: %f (took %.3s secs)\n"
+    % (best_score_log_gd * 100, best_gamma_log_gd, time.time() - stime)
+)
 
 # Logistic regression with Log loss and gradient descent
+stime = time.time()
 best_score_rlog_gd = 0
 for gamma in gammas:
-    print("gamma: %f" % gamma)
     for lambda_ in lambdas:
-        #print("lambda: %f" % lambda_)
         w, loss = reg_logistic_regression(
             y_train_split, x_train_split, lambda_, initial_w, n_iter, gamma
         )
@@ -204,8 +230,17 @@ if best_score_rlog_gd > best_score:
     best_lambda = best_lambda_rlog_gd
     best_w = best_w_rlog_gd
 
-print("Regularized Logistic regression highest acc: %.3f using gamma: %f and lambda: %f\n" % (best_score_rlog_gd*100, best_gamma_rlog_gd, best_lambda_rlog_gd))
+print(
+    "Regularized Logistic regression highest acc: %.3f using gamma: %f and lambda: %f (took %.3s secs)\n"
+    % (
+        best_score_rlog_gd * 100,
+        best_gamma_rlog_gd,
+        best_lambda_rlog_gd,
+        time.time() - stime,
+    )
+)
 
 test_pred = x_test @ best_w
 y_test_pred = np.where(test_pred >= 0, 1, -1)
 create_csv_submission(test_ids, y_test_pred, "best_submission.csv")
+print("--- %.3s secs ---" % (time.time() - start_time))
