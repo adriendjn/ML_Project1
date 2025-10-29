@@ -62,8 +62,7 @@ def sigmoid(t):
 
 
 def compute_log(y, tx, w):
-    """Computes the inverse log loss
-    """
+    """Computes the inverse log loss"""
     pred = sigmoid(tx @ w)
     loss_t = y.T @ np.log(pred) + (1 - y).T @ np.log(1 - pred)
     loss = np.squeeze(-loss_t) * (1 / y.shape[0])
@@ -252,15 +251,14 @@ def logistic_regression(y, tx, initial_w, max_iters, gamma):
         w: optimal weights, numpy array of shape(D,), D is the number of features.
         loss: loss value (scalar) for the logistic regression.
     """
-    y_binary = (y + 1) / 2.0
     w = initial_w.copy()
-    loss = compute_log(y_binary, tx, w)
+    loss = compute_log(y, tx, w)
 
     for n_iter in range(max_iters):
         pred = sigmoid(tx @ w)
-        grad = tx.T @ (pred - y_binary) * (1 / y_binary.shape[0])
+        grad = tx.T @ (pred - y) * (1 / y.shape[0])
         w -= gamma * grad
-        loss = compute_log(y_binary, tx, w)
+        loss = compute_log(y, tx, w)
     return (w, loss)
 
 
@@ -279,13 +277,12 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
         w: optimal weights, numpy array of shape(D,), D is the number of features.
         loss: loss value (scalar) for the logistic regression.
     """
-    y_binary = (y + 1) / 2.0
     w = initial_w.copy()
-    loss = compute_log(y_binary, tx, w)
+    loss = compute_log(y, tx, w)
 
     for n_iter in range(max_iters):
         pred = sigmoid(tx @ w)
-        grad = tx.T @ (pred - y_binary) * (1 / y_binary.shape[0]) + 2 * lambda_ * w
+        grad = tx.T @ (pred - y) * (1 / y.shape[0]) + 2 * lambda_ * w
         w -= gamma * grad
-        loss = compute_log(y_binary, tx, w)
+        loss = compute_log(y, tx, w)
     return (w, loss)
