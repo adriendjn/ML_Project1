@@ -5,35 +5,16 @@ from implementations import (
     ridge_regression,
     reg_logistic_regression,
     logistic_regression,
-    sigmoid
 )
 from sklearn.metrics import f1_score, accuracy_score
-
-def is_categorical(col, threshold=20):
-    unique = np.unique(col[~np.isnan(col)])
-    return len(unique) < threshold
-
-def kFold(X, y, k=5):
-    n = len(y)
-    indices = np.arange(n)
-    np.random.shuffle(indices)
-    folds = np.array_split(indices, k)
-
-    res = []
-    for i in range(k):
-        val_idx = folds[i]
-        train_idx = np.hstack([folds[j] for j in range(k) if j != i])
-        res.append((X[train_idx], X[val_idx], y[train_idx], y[val_idx]))
-    return res
-
-np.random.seed(10)
 
 print("Loading data")
 x_train, x_test, y_train, train_ids, test_ids = load_csv_data("data/dataset")
 
 print("Cleaning the mostly empty features")
 
-full_treshold = 0.4
+missing_treshold = 0.9
+full_treshold = 0.1
 
 missing_ratio = np.mean(np.isnan(x_train), axis=0)
 
@@ -45,25 +26,7 @@ x_test_clean = x_test[:, full_features]  # Renommer pour éviter confusion
 print("Kept only the features :", full_features)
 print("Cleaning the low variance features")
 
-categ = []
-# Missing value handling
-for i in range(x_clean.shape[1]):
-    train_col = x_clean[:,i]
-    test_col = x_test_clean[:,i]
-    if is_categorical(train_col):
-        vals, counts = np.unique(train_col[~np.isnan(train_col)], return_counts=True)
-        mode = vals[np.argmax(counts)]
-        train_col[np.isnan(train_col)] = mode
-        test_col[np.isnan(test_col)] = mode
-        categ.append(i)
-    else:
-        mean = np.nanmean(train_col)
-        train_col[np.isnan(train_col)] = mean
-        test_col[np.isnan(test_col)] = mean
-    x_test_clean[:,i] = test_col
-    x_clean[:,i] = train_col
-
-variance = np.var(x_clean, axis=0)
+variance = np.nanvar(x_clean, axis=0)
 low_var_treshold = 0.001
 high_var_features = np.where(variance > low_var_treshold)[0]
 
@@ -73,8 +36,9 @@ x_test_clean = x_test_clean[:, high_var_features]
 print("Kept only the features :", high_var_features)
 print("Cleaning highly correlated features")
 
+x_filled = np.where(np.isnan(x_clean), np.nanmean(x_clean, axis=0), x_clean)
 
-corr_matrix = np.corrcoef(x_clean, rowvar=False)
+corr_matrix = np.corrcoef(x_filled, rowvar=False)
 
 low_covar_treshold = 0.9
 n_features = corr_matrix.shape[0]
@@ -108,6 +72,7 @@ def one_hot_encode_manual(data, categorical_indices=None):
             
             for val_idx, value in enumerate(unique_values):
                 binary_column = (data[:, col_idx] == value).astype(float)
+                binary_column[np.isnan(data[:, col_idx])] = np.nan
                 encoded_data.append(binary_column)
                 feature_names.append(f"col{col_idx}_val{val_idx}")
         else:
@@ -127,7 +92,7 @@ def detect_categorical_columns(data, max_unique_values=5):
             unique_values = np.unique(non_nan_values)
             if len(unique_values) <= max_unique_values:
                 categorical_indices.append(col_idx)
-                print(f"Column {col_idx} detected as categorial : {len(unique_values)} unique values")
+                print(f"Colonne {col_idx} détectée comme catégorielle: {len(unique_values)} valeurs uniques")
     
     return categorical_indices
 
@@ -135,56 +100,59 @@ x_clean_encoded, feature_names = one_hot_encode_manual(x_clean)
 x_test_encoded, _ = one_hot_encode_manual(x_test_clean)
 
 
-mean = np.mean(x_clean_encoded, axis=0)
-std = np.std(x_clean_encoded, axis=0)
-std[std == 0] = 1
+mean = np.nanmean(x_clean_encoded, axis=0)
+std = np.nanstd(x_clean_encoded, axis=0)
 
-x_clean_final = (x_clean_encoded - mean) / std
+x_clean_final = np.where(np.isnan(x_clean_encoded), mean, x_clean_encoded)
+x_clean_final = (x_clean_final - mean) / std
 
-x_test_final = (x_test_encoded - mean) / std
+x_test_final = np.where(np.isnan(x_test_encoded), mean, x_test_encoded)
+x_test_final = (x_test_final - mean) / std
+
+
+# Splitting the cleaned data
+n = x_clean_final.shape[0]
+indices = np.random.permutation(n)
+split = int(n * 0.8)
+
+x_train_split = x_clean_final[indices[:split]]
+y_train_split = y_train[indices[:split]]
+x_test_split = x_clean_final[indices[split:]]
+y_test_split = y_train[indices[split:]]
 
 gammas = [1e-4, 1e-3, 1e-2, 1e-1, 0.5, 1.0]
-lambdas  = [1e-4, 1e-3, 1e-2, 1e-1, 0.5, 1.0]
+lambdas  = [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0]
 
-best_f1 = 0
+best_score = 0
 best_gamma = None
 best_w = None
-n_iter = 100
+n_iter = 20
 
 for gamma in gammas:
-    for lambda_ in lambdas :
-        print(gamma, lambda_)
-        folds = kFold(x_clean_final, y_train)
-        f1_scores = []
-        accuracy_scores = []
-        for x_train_fold, x_test_fold, y_train_fold, y_test_fold in folds:
-            w, loss = reg_logistic_regression(
-                y_train_fold, x_train_fold,lambda_ , np.zeros(x_train_fold.shape[1]), n_iter, gamma
-            )
-            y_pred = sigmoid(x_test_fold @ w)
-            y_pred_class = np.where(y_pred >= 0.8, 1, -1)
-
-            accuracy_scores.append(accuracy_score(y_test_fold, y_pred_class))
-            f1_scores.append(f1_score(y_test_fold, y_pred_class))
-        accuracy = np.mean(accuracy_scores)
-        f1 = np.mean(f1_scores) 
-        if f1 > best_f1:
-            best_f1 = f1
-            best_accuracy = accuracy
-            best_lambda = lambda_
+    for lamdba in lambdas :
+        w, loss = reg_logistic_regression(
+            y_train_split, x_train_split,lamdba, np.zeros(x_train_split.shape[1]), n_iter, gamma
+        )
+        y_pred = x_test_split @ w
+        y_pred_class = np.where(y_pred >= 0, 1, -1)
+        score = accuracy_score(y_test_split, y_pred_class)
+        f1score =f1_score(y_test_split, y_pred_class) 
+         
+        if score > best_score:
+        
+            best_score = score
+            best_f1score = f1score
+            best_lambda = lamdba
             best_gamma = gamma
+            best_w = w
 
-print("\Best gamma :", best_gamma)
-print("Best lambda :", best_lambda)
-print("Best accuracy : ", best_accuracy)
-print("Best f1 score : ", best_f1)
-
-print("Final Training")
-
-best_w, final_loss = reg_logistic_regression(y_train, x_clean_final, best_lambda, np.zeros(x_clean_final.shape[1]), 200, best_gamma)
+print("\nMeilleur gamma :", best_gamma)
+print("Meilleur lambda :", best_lambda)
+print("Meilleur accuracy : ", best_score)
+print("Meilleur f1 score : ", best_f1score)
 
 
-test_pred = sigmoid(x_test_final @ best_w)
-y_test_pred = np.where(test_pred >= 0.8, 1, -1)
-create_csv_submission(test_ids, y_test_pred, "submission.csv")
+test_pred = x_test_final @ best_w
+y_test_pred = np.where(test_pred >= 0, 1, -1)
+create_csv_submission(test_ids, y_test_pred, "first_submission.csv")
 
