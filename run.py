@@ -187,7 +187,7 @@ for gamma in gammas:
             best_lambda = lambda_
             best_gamma = gamma
 
-print("\Best gamma :", best_gamma)
+print("Best gamma :", best_gamma)
 print("Best lambda :", best_lambda)
 print("Best accuracy : ", best_accuracy)
 print("Best f1 score : ", best_f1)
