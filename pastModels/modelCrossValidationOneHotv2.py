@@ -1,15 +1,22 @@
 import numpy as np
 from helpers import load_csv_data, create_csv_submission
-from implementations import least_squares, ridge_regression, reg_logistic_regression, logistic_regression, sigmoid
+from implementations import (
+    least_squares,
+    ridge_regression,
+    reg_logistic_regression,
+    logistic_regression,
+    sigmoid,
+)
 from sklearn.metrics import f1_score, accuracy_score
 import gc
 
 np.random.seed(10)
 
+
 def normalize(x_train, x_test):
     mean = np.mean(x_train, axis=0)
     std = np.std(x_train, axis=0)
-    std[std==0] = 1
+    std[std == 0] = 1
 
     x_train = (x_train - mean) / std
     x_test = (x_test - mean) / std
@@ -17,9 +24,11 @@ def normalize(x_train, x_test):
     gc.collect()
     return x_train, x_test
 
+
 def is_categorical(col, threshold=20):
     unique = np.unique(col[~np.isnan(col)])
     return len(unique) < threshold
+
 
 def stratified_split(X, y, test_size=0.2):
     idx_pos = np.where(y == 1)[0]
@@ -34,6 +43,7 @@ def stratified_split(X, y, test_size=0.2):
     np.random.shuffle(test_idx)
     return X[train_idx], X[test_idx], y[train_idx], y[test_idx]
 
+
 def kFold(X, y, k=5):
     n = len(y)
     indices = np.arange(n)
@@ -45,51 +55,56 @@ def kFold(X, y, k=5):
         val_idx = folds[i]
         train_idx = np.hstack([folds[j] for j in range(k) if j != i])
         res.append((X[train_idx], X[val_idx], y[train_idx], y[val_idx]))
-    return res    
+    return res
+
 
 def one_hot_encode_manual(data, categorical_indices=None):
     if categorical_indices is None:
         categorical_indices = detect_categorical_columns(data)
-    
+
     encoded_data = []
     feature_names = []
-    
+
     for col_idx in range(data.shape[1]):
         if col_idx in categorical_indices:
             non_nan_mask = ~np.isnan(data[:, col_idx])
             unique_values = np.unique(data[non_nan_mask, col_idx])
-            
+
             print(f"Colonne {col_idx}: {len(unique_values)} valeurs uniques")
-            
+
             for value in unique_values:
-                binary_column = (data[:, col_idx] == value).astype(np.float32) 
+                binary_column = (data[:, col_idx] == value).astype(np.float32)
                 binary_column[~non_nan_mask] = 0
                 encoded_data.append(binary_column)
                 feature_names.append(f"col{col_idx}_val{value}")
         else:
-            col_data = data[:, col_idx].copy().astype(np.float32) 
+            col_data = data[:, col_idx].copy().astype(np.float32)
             encoded_data.append(col_data)
             feature_names.append(f"col{col_idx}_num")
-    
+
     result = np.column_stack(encoded_data)
     del encoded_data
     gc.collect()
     return result, feature_names, categorical_indices
 
+
 def detect_categorical_columns(data, max_unique_values=20):
     categorical_indices = []
-    
+
     for col_idx in range(data.shape[1]):
         column = data[:, col_idx]
         non_nan_values = column[~np.isnan(column)]
-        
+
         if len(non_nan_values) > 0:
             unique_values = np.unique(non_nan_values)
             if len(unique_values) <= max_unique_values:
                 categorical_indices.append(col_idx)
-                print(f"Colonne {col_idx} détectée comme catégorielle: {len(unique_values)} valeurs uniques")
-    
+                print(
+                    f"Colonne {col_idx} détectée comme catégorielle: {len(unique_values)} valeurs uniques"
+                )
+
     return categorical_indices
+
 
 sparse_feature_threshold = 0.6
 corr_threshold = 0.95
@@ -113,8 +128,8 @@ gc.collect()
 categ = []
 # Missing value handling
 for i in range(x_train.shape[1]):
-    train_col = x_train[:,i]
-    test_col = x_test[:,i]
+    train_col = x_train[:, i]
+    test_col = x_test[:, i]
     if is_categorical(train_col):
         vals, counts = np.unique(train_col[~np.isnan(train_col)], return_counts=True)
         mode = vals[np.argmax(counts)]
@@ -125,21 +140,25 @@ for i in range(x_train.shape[1]):
         mean = np.nanmean(train_col)
         train_col[np.isnan(train_col)] = mean
         test_col[np.isnan(test_col)] = mean
-    x_test[:,i] = test_col
-    x_train[:,i] = train_col
+    x_test[:, i] = test_col
+    x_train[:, i] = train_col
 
 print("Cleaning by One Hot Encoding :\n")
 
 categorical_indices = detect_categorical_columns(x_train)
 print(f"Total number of categorial column: {len(categorical_indices)}")
 
-x_train_encoded, feature_names, cat_indices = one_hot_encode_manual(x_train, categorical_indices)
+x_train_encoded, feature_names, cat_indices = one_hot_encode_manual(
+    x_train, categorical_indices
+)
 x_test_encoded, _, _ = one_hot_encode_manual(x_test, categorical_indices)
 
-print(f"Dimensions after encoding - Train: {x_train_encoded.shape}, Test: {x_test_encoded.shape}")
+print(
+    f"Dimensions after encoding - Train: {x_train_encoded.shape}, Test: {x_test_encoded.shape}"
+)
 
 print("Réduction immédiate des dimensions...")
-n_keep = min(300, x_train_encoded.shape[1]) 
+n_keep = min(300, x_train_encoded.shape[1])
 x_train = x_train_encoded[:, :n_keep]
 x_test = x_test_encoded[:, :n_keep]
 
@@ -162,8 +181,8 @@ corr_matrix = np.corrcoef(x_train, rowvar=False)
 to_remove = set()
 n_features = corr_matrix.shape[0]
 for i in range(n_features):
-    for j in range(i+1, n_features):
-        if abs(corr_matrix[i,j]) > corr_threshold:
+    for j in range(i + 1, n_features):
+        if abs(corr_matrix[i, j]) > corr_threshold:
             to_remove.add(j)
 uncorr_features = [i for i in range(n_features) if i not in to_remove]
 x_train = x_train[:, uncorr_features]
@@ -191,16 +210,23 @@ gamma = 0.2
 for gamma in gammas:
     print(gamma)
     sig_scores = []
-    for fold_x_train, fold_x_test, fold_y_train, fold_y_test in folds:  # CORRECTION : noms de variables différents
+    for (
+        fold_x_train,
+        fold_x_test,
+        fold_y_train,
+        fold_y_test,
+    ) in folds:  # CORRECTION : noms de variables différents
         fold_x_train, fold_x_test = normalize(fold_x_train, fold_x_test)
-        w, loss = logistic_regression(fold_y_train, fold_x_train, np.zeros(fold_x_train.shape[1]), n_iter, gamma)
+        w, loss = logistic_regression(
+            fold_y_train, fold_x_train, np.zeros(fold_x_train.shape[1]), n_iter, gamma
+        )
         sig_y_pred = sigmoid(fold_x_test @ w)
         sig_pred_class = np.where(sig_y_pred >= sig_treshold, 1, -1)
         sig_score = f1_score(fold_y_test, sig_pred_class)
         sig_scores.append(sig_score)
         del w, sig_y_pred, sig_pred_class
         gc.collect()
-        
+
     sig_mean = np.mean(sig_scores)
     if sig_mean > best_score:
         best_score = sig_mean
@@ -215,10 +241,12 @@ print(np.unique(best_pred, return_counts=True))
 del folds, sig_scores, best_pred  # CORRECTION : supprimer les variables inutiles
 gc.collect()
 
-# Training the final model 
+# Training the final model
 x_train, x_test = normalize(x_train, x_test)
 
-w, loss = logistic_regression(y_train, x_train, np.zeros(x_train.shape[1]), 200, best_gamma)
+w, loss = logistic_regression(
+    y_train, x_train, np.zeros(x_train.shape[1]), 200, best_gamma
+)
 
 sig_test_pred = sigmoid(x_test @ w)
 y_test_pred = np.where(sig_test_pred > sig_treshold, 1, -1)
